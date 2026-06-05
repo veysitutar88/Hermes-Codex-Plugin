@@ -5,25 +5,11 @@ from hermes_codex_plugin.domain.memory.entities import MemoryEntry
 
 
 @final
-class MemoryRepository(Protocol):
-    db_path: Path
+class MemoryReader(Protocol):
+    @property
+    def db_path(self) -> Path: ...
 
-    def add_entry(
-        self,
-        content: str,
-        *,
-        kind: str = "memory",
-        scope: str = "global",
-        source: str = "",
-        session_id: str = "",
-        turn_id: str = "",
-        cwd: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> int: ...
-
-    def delete_entry(self, entry_id: int) -> bool: ...
-
-    def search(
+    async def search(
         self,
         query: str,
         *,
@@ -34,11 +20,11 @@ class MemoryRepository(Protocol):
         exclude_kinds: Optional[List[str]] = None,
     ) -> List[MemoryEntry]: ...
 
-    def recent(
+    async def recent(
         self,
         *,
         limit: int = 20,
         kind: Optional[str] = None,
     ) -> List[MemoryEntry]: ...
 
-    def stats(self) -> Dict[str, Any]: ...
+    async def stats(self) -> Dict[str, Any]: ...

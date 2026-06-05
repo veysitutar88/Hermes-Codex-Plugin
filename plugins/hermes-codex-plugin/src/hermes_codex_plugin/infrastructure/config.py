@@ -1,7 +1,7 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import os
 
 
 def _int_env(name: str, default: int) -> int:

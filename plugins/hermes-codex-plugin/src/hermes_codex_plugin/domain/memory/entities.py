@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 from hermes_codex_plugin.domain.common.entity import Entity
+from hermes_codex_plugin.domain.memory.redaction import redact
 from hermes_codex_plugin.domain.memory.value_objects import (
     MemoryContent,
     MemoryCreatedAt,
@@ -29,6 +30,10 @@ class MemoryEntry(Entity):
     meta: MemoryMetadata
     created_time: MemoryCreatedAt
 
+    @staticmethod
+    def redact_content(content: str) -> str:
+        return redact(content)
+
     @classmethod
     def from_raw(
         cls,
@@ -52,7 +57,7 @@ class MemoryEntry(Entity):
             session=MemorySessionId(session_id),
             turn=MemoryTurnId(turn_id),
             current_working_directory=MemoryCwd(cwd),
-            body=MemoryContent(content),
+            body=MemoryContent(cls.redact_content(content)),
             meta=MemoryMetadata(metadata),
             created_time=MemoryCreatedAt(created_at),
         )

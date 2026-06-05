@@ -13,8 +13,7 @@ def format_entries(
     for entry in entries:
         content = " ".join(entry.content.split())
         block = (
-            "- #{id} [{kind}/{scope}] {content} "
-            "(source={source}, session={session})"
+            "- #{id} [{kind}/{scope}] {content} " "(source={source}, session={session})"
         ).format(
             id=entry.id,
             kind=entry.kind,

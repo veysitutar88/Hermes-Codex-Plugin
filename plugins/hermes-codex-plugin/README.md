@@ -4,7 +4,7 @@
 
 <p align="center">
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-3776AB.svg">
-  <img alt="Tests: 52 passing" src="https://img.shields.io/badge/tests-52%20passing-10B981.svg">
+  <img alt="Tests: 59 passing" src="https://img.shields.io/badge/tests-59%20passing-10B981.svg">
   <img alt="SQLite FTS5" src="https://img.shields.io/badge/search-SQLite%20FTS5-6366F1.svg">
   <img alt="Embeddings: none" src="https://img.shields.io/badge/embeddings-none-0F172A.svg">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10B981.svg">
@@ -15,15 +15,21 @@
 Hermes Codex Plugin is a local-first memory and skill evolution plugin for Codex. It captures
 useful conversation context through Codex hooks, recalls relevant memory with SQLite full-text
 search, exposes MCP tools for direct memory operations, and drafts reusable `SKILL.md` files from
-repeated rules.
+repeated rules. The main benefit is reducing Codex token spend by injecting only the smallest
+relevant context instead of replaying whole chats or long prompt blocks.
+Before solving a task, it nudges Codex to check memory for similar work, existing skills, and
+durable user/project rules so remembered constraints guide the implementation.
 
 ## Features
 
 - Local SQLite memory with FTS5 and `LIKE` fallback.
 - Cross-chat memory search through MCP.
+- Minimal relevant recall to reduce Codex token spend.
+- Memory-first task guidance for similar work, skills, and durable coding rules.
+- Structured task summaries saved by Codex through MCP.
 - Prompt, assistant response, and transcript capture through hooks.
 - Durable memory entries for user rules and project conventions.
-- Skill draft generation from repeated workflow rules.
+- Skill draft generation from repeated workflow rules, including multilingual rules when Codex judges they should become reusable workflow guidance.
 - CLI for local inspection and smoke tests.
 - DDD-inspired Python package structure.
 
@@ -58,9 +64,10 @@ PYTHONPATH=src python3 -m hermes_codex_plugin.presentation.cli.main stats
 | `hermes_codex_search` | Search local memory, optionally scoped by cwd. |
 | `hermes_codex_search_chats` | Search previous chats across projects. |
 | `hermes_codex_remember` | Save durable non-secret memory. |
+| `hermes_codex_remember_summary` | Save a structured Codex-written task summary. |
 | `hermes_codex_forget` | Delete a memory entry by id. |
 | `hermes_codex_stats` | Show database statistics. |
-| `hermes_codex_propose_skill` | Draft a skill from memory rules. |
+| `hermes_codex_propose_skill` | Draft a skill from memory rules, including multilingual workflow rules. |
 | `hermes_codex_write_skill` | Write a reviewed skill to disk. |
 
 ## Hooks

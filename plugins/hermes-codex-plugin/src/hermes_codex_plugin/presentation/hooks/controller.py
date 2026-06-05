@@ -1,24 +1,31 @@
-from pathlib import Path
-from typing import Any, Dict
+import asyncio
 import json
 import sys
+from pathlib import Path
+from typing import Any, Dict
 
+from hermes_codex_plugin.application.common.interfaces import UnitOfWork
 from hermes_codex_plugin.application.memory.commands.remember_memory import (
     RememberMemory,
     RememberMemoryHandler,
 )
+from hermes_codex_plugin.application.memory.interfaces import MemoryReader, MemoryRepo
 from hermes_codex_plugin.application.memory.mapper import MemoryEntryMapper
-from hermes_codex_plugin.application.memory.recall import MemoryRecallService, dedupe_entries
-from hermes_codex_plugin.domain.memory.interfaces.repository import MemoryRepository
+from hermes_codex_plugin.application.memory.recall import (
+    MemoryRecallService,
+    dedupe_entries,
+)
 from hermes_codex_plugin.domain.memory.policy import (
     global_memory_policy_context,
     search_hint_context,
 )
 from hermes_codex_plugin.infrastructure.config import load_settings
-from hermes_codex_plugin.infrastructure.logging import logger
-from hermes_codex_plugin.infrastructure.persistence.sqlite_memory_repository import (
-    SQLiteMemoryRepository,
+from hermes_codex_plugin.infrastructure.db.connect import open_memory_session
+from hermes_codex_plugin.infrastructure.db.gateways.memory import (
+    MemoryReaderGateway,
+    MemoryRepoGateway,
 )
+from hermes_codex_plugin.infrastructure.logging import logger
 from hermes_codex_plugin.presentation.formatting import format_entries
 
 
@@ -54,37 +61,64 @@ def read_event() -> Dict[str, Any]:
 
 
 def handle_event(event: Dict[str, Any], *, expected_event: str) -> Dict[str, Any]:
+    return asyncio.run(handle_event_async(event, expected_event=expected_event))
+
+
+async def handle_event_async(
+    event: Dict[str, Any],
+    *,
+    expected_event: str,
+) -> Dict[str, Any]:
     settings = load_settings()
     if settings.disabled:
         return {"continue": True}
 
-    memory_repo = SQLiteMemoryRepository(settings.db_path)
-    name = event.get("hook_event_name") or expected_event
-    if expected_event == "SessionStart":
-        return handle_session_start(memory_repo, event, name, settings.recall_chars)
-    if expected_event == "UserPromptSubmit":
-        return handle_user_prompt_submit(
-            memory_repo,
-            event,
-            name,
-            settings.recall_limit,
-            settings.recall_chars,
-        )
-    if expected_event == "Stop":
-        return handle_stop(memory_repo, event, settings.capture_assistant)
-    if expected_event == "PreCompact":
-        return handle_pre_compact(memory_repo, event, settings.max_capture_chars)
+    async with open_memory_session(settings.db_path) as session:
+        memory_reader = MemoryReaderGateway(session, settings.db_path)
+        memory_repo = MemoryRepoGateway(session, settings.db_path)
+        name = event.get("hook_event_name") or expected_event
+        if expected_event == "SessionStart":
+            return await handle_session_start(
+                memory_reader,
+                event,
+                name,
+                settings.recall_chars,
+            )
+        if expected_event == "UserPromptSubmit":
+            return await handle_user_prompt_submit(
+                memory_reader,
+                memory_repo,
+                session,
+                event,
+                name,
+                settings.recall_limit,
+                settings.recall_chars,
+            )
+        if expected_event == "Stop":
+            return await handle_stop(
+                memory_repo,
+                session,
+                event,
+                settings.capture_assistant,
+            )
+        if expected_event == "PreCompact":
+            return await handle_pre_compact(
+                memory_repo,
+                session,
+                event,
+                settings.max_capture_chars,
+            )
     return {"continue": True}
 
 
-def handle_session_start(
-    memory_repo: MemoryRepository,
+async def handle_session_start(
+    memory_reader: MemoryReader,
     event: Dict[str, Any],
     hook_name: str,
     max_chars: int,
 ) -> Dict[str, Any]:
     del event
-    recent = memory_repo.recent(limit=5)
+    recent = await memory_reader.recent(limit=5)
     if not recent:
         return {"continue": True}
     memory_mapper = MemoryEntryMapper()
@@ -95,8 +129,10 @@ def handle_session_start(
     return additional_context(hook_name, context)
 
 
-def handle_user_prompt_submit(
-    memory_repo: MemoryRepository,
+async def handle_user_prompt_submit(
+    memory_reader: MemoryReader,
+    memory_repo: MemoryRepo,
+    uow: UnitOfWork,
     event: Dict[str, Any],
     hook_name: str,
     limit: int,
@@ -110,13 +146,13 @@ def handle_user_prompt_submit(
     if not prompt:
         return {"continue": True}
 
-    recall_service = MemoryRecallService(memory_repo)
-    matches = recall_service.recall(prompt, limit=limit, cwd=cwd)
-    standing = recall_service.recent_durable(limit=3)
+    recall_service = MemoryRecallService(memory_reader)
+    matches = await recall_service.recall(prompt, limit=limit, cwd=cwd)
+    standing = await recall_service.recent_durable(limit=3)
     memory_mapper = MemoryEntryMapper()
 
-    remember = RememberMemoryHandler(memory_repo)
-    remember(
+    remember = RememberMemoryHandler(memory_repo, uow)
+    await remember(
         RememberMemory(
             prompt,
             kind="prompt",
@@ -138,16 +174,17 @@ def handle_user_prompt_submit(
                 max_chars=max_chars,
                 heading=(
                     "Hermes Codex Plugin durable/relevant memory. Prefer user_rule, "
-                    "project_rule, rule, and memory entries over transient prompt/assistant "
-                    "history."
+                    "project_rule, rule, summary, and memory entries over transient "
+                    "prompt/assistant history."
                 ),
             )
         )
     return additional_context(hook_name, "\n\n".join(context_parts))
 
 
-def handle_stop(
-    memory_repo: MemoryRepository,
+async def handle_stop(
+    memory_repo: MemoryRepo,
+    uow: UnitOfWork,
     event: Dict[str, Any],
     capture_assistant: bool,
 ) -> Dict[str, Any]:
@@ -155,8 +192,8 @@ def handle_stop(
         return {"continue": True}
     message = str(event.get("last_assistant_message") or "").strip()
     if message:
-        remember = RememberMemoryHandler(memory_repo)
-        remember(
+        remember = RememberMemoryHandler(memory_repo, uow)
+        await remember(
             RememberMemory(
                 message,
                 kind="assistant",
@@ -171,8 +208,9 @@ def handle_stop(
     return {"continue": True}
 
 
-def handle_pre_compact(
-    memory_repo: MemoryRepository,
+async def handle_pre_compact(
+    memory_repo: MemoryRepo,
+    uow: UnitOfWork,
     event: Dict[str, Any],
     max_capture_chars: int,
 ) -> Dict[str, Any]:
@@ -186,8 +224,8 @@ def handle_pre_compact(
     if len(content) > max_capture_chars:
         content = content[-max_capture_chars:]
     if content.strip():
-        remember = RememberMemoryHandler(memory_repo)
-        remember(
+        remember = RememberMemoryHandler(memory_repo, uow)
+        await remember(
             RememberMemory(
                 content,
                 kind="transcript",

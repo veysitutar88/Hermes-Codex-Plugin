@@ -1,7 +1,7 @@
 {
   "name": "hermes-codex-plugin",
   "version": "0.10.1",
-  "description": "Local-first memory, recall, and skill evolution for Codex agents.",
+  "description": "Local-first memory for Codex with minimal relevant context to reduce token spend.",
   "author": {
     "name": "Hermes Codex Plugin contributors"
   },
@@ -19,8 +19,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Hermes Codex Plugin",
-    "shortDescription": "Local-first memory for Codex",
-    "longDescription": "Capture Codex sessions locally, recall relevant context with SQLite full-text search, search across previous chats, and draft reusable skills from repeated rules without embeddings.",
+    "shortDescription": "Memory with fewer Codex tokens",
+    "longDescription": "Capture Codex sessions locally, recall only the smallest relevant context to reduce Codex token spend, check similar past work and existing skills before solving tasks, save structured Codex-written task summaries, apply durable user/project rules while editing code, and let Codex judge when repeated multilingual workflow rules deserve a skill draft.",
     "developerName": "Hermes Codex Plugin contributors",
     "category": "Developer Tools",
     "capabilities": [
@@ -29,9 +29,11 @@
     ],
     "defaultPrompt": [
       "Search my Codex memory for this project",
-      "Remember this workflow rule",
-      "Draft a skill from repeated rules"
-    ],
+            "Check memory before solving this task",
+            "Remember this workflow rule",
+            "Save a summary of this completed task",
+            "Draft a skill from repeated rules"
+        ],
     "brandColor": "#10A37F",
     "screenshots": []
   }

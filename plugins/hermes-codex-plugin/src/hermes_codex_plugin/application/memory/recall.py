@@ -1,37 +1,44 @@
 from typing import Iterable, List
 
+from hermes_codex_plugin.application.memory.interfaces import MemoryReader
 from hermes_codex_plugin.domain.memory.entities import MemoryEntry
-from hermes_codex_plugin.domain.memory.interfaces.repository import MemoryRepository
 
-
-DURABLE_KINDS = ["project_rule", "user_rule", "rule", "memory"]
-RECALL_KINDS = ["project_rule", "user_rule", "rule", "memory", "assistant", "transcript"]
+DURABLE_KINDS = ["project_rule", "user_rule", "rule", "summary", "memory"]
+RECALL_KINDS = [
+    "project_rule",
+    "user_rule",
+    "rule",
+    "summary",
+    "memory",
+    "assistant",
+    "transcript",
+]
 
 
 class MemoryRecallService:
-    def __init__(self, memory_repo: MemoryRepository) -> None:
-        self._memory_repo = memory_repo
+    def __init__(self, memory_reader: MemoryReader) -> None:
+        self._memory_reader = memory_reader
 
-    def recall(self, query: str, *, limit: int, cwd: str) -> List[MemoryEntry]:
-        same_cwd_durable = self._memory_repo.search(
+    async def recall(self, query: str, *, limit: int, cwd: str) -> List[MemoryEntry]:
+        same_cwd_durable = await self._memory_reader.search(
             query,
             limit=max(limit, 8),
             cwd=cwd,
             kinds=DURABLE_KINDS,
         )
-        cross_cwd_durable = self._memory_repo.search(
+        cross_cwd_durable = await self._memory_reader.search(
             query,
             limit=max(limit, 8),
             cwd=None,
             kinds=DURABLE_KINDS,
         )
-        same_cwd_supplemental = self._memory_repo.search(
+        same_cwd_supplemental = await self._memory_reader.search(
             query,
             limit=limit,
             cwd=cwd,
             kinds=RECALL_KINDS,
         )
-        cross_cwd_supplemental = self._memory_repo.search(
+        cross_cwd_supplemental = await self._memory_reader.search(
             query,
             limit=limit,
             cwd=None,
@@ -44,10 +51,10 @@ class MemoryRecallService:
             + cross_cwd_supplemental
         )[:limit]
 
-    def recent_durable(self, *, limit: int) -> List[MemoryEntry]:
+    async def recent_durable(self, *, limit: int) -> List[MemoryEntry]:
         entries: List[MemoryEntry] = []
         for kind in DURABLE_KINDS:
-            entries.extend(self._memory_repo.recent(limit=limit, kind=kind))
+            entries.extend(await self._memory_reader.recent(limit=limit, kind=kind))
         entries.sort(key=lambda entry: entry.entry_id.to_raw(), reverse=True)
         return entries[:limit]
 

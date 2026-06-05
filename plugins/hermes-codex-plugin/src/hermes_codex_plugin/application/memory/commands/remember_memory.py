@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-from hermes_codex_plugin.domain.memory.interfaces.repository import MemoryRepository
+from hermes_codex_plugin.application.common.interfaces import UnitOfWork
+from hermes_codex_plugin.application.memory.interfaces import MemoryRepo
 
 
 @dataclass(frozen=True)
@@ -17,11 +18,12 @@ class RememberMemory:
 
 
 class RememberMemoryHandler:
-    def __init__(self, memory_repo: MemoryRepository) -> None:
+    def __init__(self, memory_repo: MemoryRepo, uow: UnitOfWork) -> None:
         self._memory_repo = memory_repo
+        self._uow = uow
 
-    def __call__(self, command: RememberMemory) -> int:
-        return self._memory_repo.add_entry(
+    async def __call__(self, command: RememberMemory) -> int:
+        entry_id = await self._memory_repo.add_entry(
             command.content,
             kind=command.kind,
             scope=command.scope,
@@ -31,3 +33,5 @@ class RememberMemoryHandler:
             cwd=command.cwd,
             metadata=command.metadata,
         )
+        await self._uow.commit()
+        return entry_id

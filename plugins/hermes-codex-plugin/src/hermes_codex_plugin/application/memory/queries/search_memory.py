@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from hermes_codex_plugin.application.memory.dto import MemoryEntryDTO
+from hermes_codex_plugin.application.memory.interfaces import MemoryReader
 from hermes_codex_plugin.application.memory.mapper import MemoryEntryMapper
-from hermes_codex_plugin.domain.memory.interfaces.repository import MemoryRepository
 
 
 @dataclass(frozen=True)
@@ -19,14 +19,14 @@ class SearchMemory:
 class SearchMemoryHandler:
     def __init__(
         self,
-        memory_repo: MemoryRepository,
+        memory_reader: MemoryReader,
         memory_mapper: MemoryEntryMapper,
     ) -> None:
-        self._memory_repo = memory_repo
+        self._memory_reader = memory_reader
         self._memory_mapper = memory_mapper
 
-    def __call__(self, query: SearchMemory) -> List[MemoryEntryDTO]:
-        entries = self._memory_repo.search(
+    async def __call__(self, query: SearchMemory) -> List[MemoryEntryDTO]:
+        entries = await self._memory_reader.search(
             query.query,
             limit=query.limit,
             cwd=query.cwd,

@@ -1,6 +1,6 @@
-from pathlib import Path
 import os
 import unittest
+from pathlib import Path
 
 from hermes_codex_plugin.infrastructure.config import (
     default_db_path,
@@ -30,7 +30,12 @@ class ConfigTest(unittest.TestCase):
     def test_default_db_path_uses_plugin_root_when_plugin_data_is_missing(self) -> None:
         old_env = {
             name: os.environ.get(name)
-            for name in ("HERMES_CODEX_DB", "PLUGIN_DATA", "CLAUDE_PLUGIN_DATA", "PLUGIN_ROOT")
+            for name in (
+                "HERMES_CODEX_DB",
+                "PLUGIN_DATA",
+                "CLAUDE_PLUGIN_DATA",
+                "PLUGIN_ROOT",
+            )
         }
         try:
             for name in old_env:
@@ -58,7 +63,12 @@ class ConfigTest(unittest.TestCase):
     def test_explicit_db_path_takes_precedence(self) -> None:
         old_env = {
             name: os.environ.get(name)
-            for name in ("HERMES_CODEX_DB", "PLUGIN_DATA", "CLAUDE_PLUGIN_DATA", "PLUGIN_ROOT")
+            for name in (
+                "HERMES_CODEX_DB",
+                "PLUGIN_DATA",
+                "CLAUDE_PLUGIN_DATA",
+                "PLUGIN_ROOT",
+            )
         }
         try:
             os.environ["HERMES_CODEX_DB"] = "/tmp/explicit-memory.sqlite3"
@@ -72,7 +82,9 @@ class ConfigTest(unittest.TestCase):
                 else:
                     os.environ[name] = value
 
-    def test_invalid_numeric_env_uses_default_and_boolean_env_parses_false(self) -> None:
+    def test_invalid_numeric_env_uses_default_and_boolean_env_parses_false(
+        self,
+    ) -> None:
         old_env = {
             name: os.environ.get(name)
             for name in (

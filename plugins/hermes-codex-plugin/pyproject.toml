@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hermes-codex-plugin"
 version = "0.10.1"
-description = "Local-first memory, recall, and skill evolution for Codex agents."
+description = "Local-first memory for Codex with minimal relevant context to reduce token spend."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
@@ -21,13 +21,22 @@ classifiers = [
   "Topic :: Software Development"
 ]
 dependencies = [
-  "loguru>=0.7,<1"
+  "aiosqlite>=0.20,<1",
+  "loguru>=0.7,<1",
+  "sqlalchemy>=2,<3"
 ]
 
 [project.urls]
 Homepage = "https://github.com/lyakakoy/hermes-codex-plugin"
 Repository = "https://github.com/lyakakoy/hermes-codex-plugin"
 Issues = "https://github.com/lyakakoy/hermes-codex-plugin/issues"
+
+[dependency-groups]
+dev = [
+  "black",
+  "isort",
+  "pyright"
+]
 
 [project.scripts]
 hermes-codex-plugin = "hermes_codex_plugin.presentation.cli.main:main"

@@ -5,7 +5,7 @@
 <p align="center">
   <a href="plugins/hermes-codex-plugin/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10B981.svg"></a>
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-3776AB.svg">
-  <img alt="Tests: 52 passing" src="https://img.shields.io/badge/tests-52%20passing-10B981.svg">
+  <img alt="Tests: 59 passing" src="https://img.shields.io/badge/tests-59%20passing-10B981.svg">
   <img alt="SQLite FTS5" src="https://img.shields.io/badge/search-SQLite%20FTS5-6366F1.svg">
   <img alt="Embeddings: none" src="https://img.shields.io/badge/embeddings-none-0F172A.svg">
   <img alt="Codex plugin" src="https://img.shields.io/badge/Codex-plugin-22D3EE.svg">
@@ -16,13 +16,19 @@
 Hermes Codex Plugin is a local-first Codex plugin that gives Codex durable memory across chats,
 full-text recall, and a lightweight path from repeated rules to reusable skills. It is designed for
 developers who want an agent to remember project conventions without sending chat history to a
-remote embedding service.
+remote embedding service. Its main benefit is reducing Codex token spend by recalling only the
+smallest relevant context instead of replaying whole chats or long prompt blocks.
+Before solving a task, the plugin steers Codex to check whether similar work, an existing skill,
+or durable user/project rules already exist, so Codex can reuse prior decisions instead of
+inventing a fresh approach.
 
 The plugin is intentionally simple:
 
 - local SQLite storage with FTS5 and a `LIKE` fallback;
 - Codex lifecycle hooks for capture and recall;
 - MCP tools for search, write, delete, stats, and skill drafts;
+- Codex-written task summaries through `hermes_codex_remember_summary`;
+- memory-first task guidance that applies durable rules during code edits;
 - a Python CLI for local inspection and smoke tests;
 - DDD-inspired internals with value objects, DTO mappers, commands, and queries.
 
@@ -32,14 +38,18 @@ No embeddings are used. No background daemon is required.
 
 Codex is strongest when it has the rules that matter: project architecture decisions, preferred
 review style, workflows, and prior choices. Those rules often live in old chats. Hermes Codex Plugin
-turns those chats into a local full-text memory layer that can be recalled before the next request.
+turns those chats into a local full-text memory layer that can be recalled before the next request
+with minimal context and fewer Codex tokens.
 
 Typical use cases:
 
 - remember architecture rules across unrelated Codex sessions;
 - search prior chats without manually pasting context back into the prompt;
 - keep reusable workflow instructions in local memory;
-- draft `SKILL.md` files from repeated project rules;
+- save compact task summaries instead of long raw transcript excerpts;
+- enforce remembered coding rules, such as keeping imports at the top of a file;
+- draft `SKILL.md` files from repeated project rules, including non-English rules when
+  Codex judges them to describe a reusable workflow;
 - inspect exactly what memory exists, where it came from, and when it was captured.
 
 ## Status
@@ -48,7 +58,7 @@ Typical use cases:
 | --- | --- |
 | Version | `0.10.1` |
 | Language | Python 3.9+ |
-| Test suite | 52 passing `unittest` tests |
+| Test suite | 59 passing `unittest` tests |
 | Storage | SQLite with FTS5, plus `LIKE` fallback |
 | Embeddings | None |
 | License | MIT |
@@ -115,9 +125,10 @@ The bundled MCP server exposes:
 | `hermes_codex_search` | Search local memory, optionally scoped by cwd. |
 | `hermes_codex_search_chats` | Search previous chats across projects. |
 | `hermes_codex_remember` | Save a durable, non-secret memory entry. |
+| `hermes_codex_remember_summary` | Save a structured Codex-written task summary. |
 | `hermes_codex_forget` | Delete a memory entry by id. |
 | `hermes_codex_stats` | Show local memory database statistics. |
-| `hermes_codex_propose_skill` | Draft a `SKILL.md` from matching memory rules. |
+| `hermes_codex_propose_skill` | Draft a `SKILL.md` from matching memory rules, including multilingual workflow rules. |
 | `hermes_codex_write_skill` | Write a reviewed skill file. |
 
 ## CLI Usage

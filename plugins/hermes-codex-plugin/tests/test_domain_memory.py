@@ -41,6 +41,22 @@ class MemoryDomainTest(unittest.TestCase):
         self.assertEqual(entry.meta, MemoryMetadata({"tag": "qa"}))
         self.assertEqual(entry.created_time, MemoryCreatedAt("2026-06-05T12:00:00Z"))
 
+    def test_memory_entry_redacts_content_when_created(self) -> None:
+        entry = MemoryEntry.from_raw(
+            id=1,
+            kind="memory",
+            scope="global",
+            source="test",
+            session_id="",
+            turn_id="",
+            cwd="",
+            content="token=super-secret-value",
+            metadata={},
+            created_at="2026-06-05T12:00:00Z",
+        )
+
+        self.assertEqual(entry.body, MemoryContent("[REDACTED]"))
+
     def test_memory_value_objects_validate_required_values(self) -> None:
         invalid_cases = [
             (MemoryEntryId, 0),

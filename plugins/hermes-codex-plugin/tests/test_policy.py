@@ -1,9 +1,26 @@
 import unittest
 
-from hermes_codex_plugin.domain.memory.policy import search_hint_context
+from hermes_codex_plugin.domain.memory.policy import (
+    global_memory_policy_context,
+    search_hint_context,
+)
 
 
 class PolicyTest(unittest.TestCase):
+    def test_global_policy_requires_memory_before_solving_tasks(self) -> None:
+        policy = global_memory_policy_context()
+
+        self.assertIn("Before solving a task", policy)
+        self.assertIn("similar work", policy)
+        self.assertIn("existing reusable skills", policy)
+        self.assertIn("semantic judgment", policy)
+        self.assertIn("multilingual rule", policy)
+        self.assertIn("hermes_codex_propose_skill", policy)
+        self.assertIn("hermes_codex_remember_summary", policy)
+        self.assertIn("prefer summaries over raw chat transcripts", policy)
+        self.assertIn("Apply durable rules", policy)
+        self.assertIn("import placement", policy)
+
     def test_search_hint_uses_request_without_domain_expansion(self) -> None:
         prompt = (
             "Review this Python service and improve it according to "

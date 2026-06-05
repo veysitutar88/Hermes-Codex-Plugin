@@ -1,56 +1,79 @@
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from hermes_codex_plugin.application.skills.mapper import SkillDraftMapper
 from hermes_codex_plugin.application.skills.queries.propose_skill import (
     ProposeSkill,
     ProposeSkillHandler,
 )
-from hermes_codex_plugin.infrastructure.persistence.sqlite_memory_repository import (
-    SQLiteMemoryRepository,
+from hermes_codex_plugin.infrastructure.db.connect import open_memory_session
+from hermes_codex_plugin.infrastructure.db.gateways.memory import (
+    MemoryReaderGateway,
+    MemoryRepoGateway,
 )
-from hermes_codex_plugin.infrastructure.skills.filesystem_skill_writer import write_skill
+from hermes_codex_plugin.infrastructure.skills.filesystem_skill_writer import (
+    write_skill,
+)
 from hermes_codex_plugin.presentation.skills.formatting import format_skill_draft
 
 
-class SkillMinerTest(unittest.TestCase):
-    def test_propose_skill_extracts_rule_sentences(self) -> None:
+class SkillMinerTest(unittest.IsolatedAsyncioTestCase):
+    async def test_propose_skill_extracts_rule_sentences(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            store = SQLiteMemoryRepository(Path(tmp) / "memory.sqlite3")
-            store.add_entry("Always run pytest before opening a PR.", kind="rule")
-            store.add_entry("Prefer small patches and focused tests.", kind="rule")
+            db_path = Path(tmp) / "memory.sqlite3"
+            async with open_memory_session(db_path) as session:
+                repo = MemoryRepoGateway(session, db_path)
+                reader = MemoryReaderGateway(session, db_path)
+                await repo.add_entry(
+                    "Always run pytest before opening a PR.", kind="rule"
+                )
+                await repo.add_entry(
+                    "Prefer small patches and focused tests.", kind="rule"
+                )
 
-            draft = ProposeSkillHandler(store)(
-                ProposeSkill(query="pytest patches", name="review-flow")
-            )
-            markdown = format_skill_draft(SkillDraftMapper().to_dto(draft))
+                draft = await ProposeSkillHandler(reader)(
+                    ProposeSkill(query="pytest patches", name="review-flow")
+                )
+                markdown = format_skill_draft(SkillDraftMapper().to_dto(draft))
 
-            self.assertIn("name: review-flow", markdown)
-            self.assertIn("Always run pytest", markdown)
-            self.assertIn("Prefer small patches", markdown)
+                self.assertIn("name: review-flow", markdown)
+                self.assertIn("Always run pytest", markdown)
+                self.assertIn("Prefer small patches", markdown)
 
-    def test_propose_skill_uses_fallback_rule_when_no_rule_sentences_match(self) -> None:
+    async def test_propose_skill_uses_fallback_rule_when_no_rule_sentences_match(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            store = SQLiteMemoryRepository(Path(tmp) / "memory.sqlite3")
-            store.add_entry("This is just a neutral observation.", kind="memory")
+            db_path = Path(tmp) / "memory.sqlite3"
+            async with open_memory_session(db_path) as session:
+                repo = MemoryRepoGateway(session, db_path)
+                reader = MemoryReaderGateway(session, db_path)
+                await repo.add_entry(
+                    "This is just a neutral observation.", kind="memory"
+                )
 
-            draft = ProposeSkillHandler(store)(
-                ProposeSkill(query="neutral", name="neutral-flow")
-            )
+                draft = await ProposeSkillHandler(reader)(
+                    ProposeSkill(query="neutral", name="neutral-flow")
+                )
 
-            self.assertIn(
-                "Review local memory before repeating this workflow.",
-                format_skill_draft(SkillDraftMapper().to_dto(draft)),
-            )
+                self.assertIn(
+                    "Review local memory before repeating this workflow.",
+                    format_skill_draft(SkillDraftMapper().to_dto(draft)),
+                )
 
-    def test_write_skill_respects_overwrite_flag(self) -> None:
+    async def test_write_skill_respects_overwrite_flag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            store = SQLiteMemoryRepository(Path(tmp) / "memory.sqlite3")
-            store.add_entry("Always run pytest before opening a PR.", kind="rule")
-            draft = ProposeSkillHandler(store)(
-                ProposeSkill(query="pytest", name="review-flow")
-            )
+            db_path = Path(tmp) / "memory.sqlite3"
+            async with open_memory_session(db_path) as session:
+                repo = MemoryRepoGateway(session, db_path)
+                reader = MemoryReaderGateway(session, db_path)
+                await repo.add_entry(
+                    "Always run pytest before opening a PR.", kind="rule"
+                )
+                draft = await ProposeSkillHandler(reader)(
+                    ProposeSkill(query="pytest", name="review-flow")
+                )
             draft_dto = SkillDraftMapper().to_dto(draft)
             markdown = format_skill_draft(draft_dto)
             skills_root = Path(tmp) / "skills"

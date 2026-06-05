@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.2
+
+- Move runtime configuration to `pydantic-settings` with flat environment variables.
+- Make config path tests independent from the current Codex plugin cache working directory.
+
 ## 0.10.1
 
 - Replace the square mark with a retro block wordmark inspired by the Hermes Agent banner style.

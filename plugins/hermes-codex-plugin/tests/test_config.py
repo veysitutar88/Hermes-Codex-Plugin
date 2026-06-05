@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -28,6 +29,7 @@ class ConfigTest(unittest.TestCase):
         )
 
     def test_default_db_path_uses_plugin_root_when_plugin_data_is_missing(self) -> None:
+        old_cwd = Path.cwd()
         old_env = {
             name: os.environ.get(name)
             for name in (
@@ -45,15 +47,21 @@ class ConfigTest(unittest.TestCase):
                 "hermes-codex-plugin/hermes-codex-plugin/0.1.4"
             )
 
-            self.assertEqual(
-                default_db_path(),
-                Path(
-                    "/Users/example/.codex/plugins/data/"
-                    "hermes-codex-plugin-hermes-codex-plugin/"
-                    "hermes-codex-plugin.sqlite3"
-                ),
-            )
+            with tempfile.TemporaryDirectory() as temp_dir:
+                os.chdir(temp_dir)
+                try:
+                    self.assertEqual(
+                        default_db_path(),
+                        Path(
+                            "/Users/example/.codex/plugins/data/"
+                            "hermes-codex-plugin-hermes-codex-plugin/"
+                            "hermes-codex-plugin.sqlite3"
+                        ),
+                    )
+                finally:
+                    os.chdir(old_cwd)
         finally:
+            os.chdir(old_cwd)
             for name, value in old_env.items():
                 if value is None:
                     os.environ.pop(name, None)

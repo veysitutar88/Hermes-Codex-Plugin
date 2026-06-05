@@ -56,7 +56,7 @@ Typical use cases:
 
 | Area | Current state |
 | --- | --- |
-| Version | `0.10.1` |
+| Version | `0.10.2` |
 | Language | Python 3.9+ |
 | Test suite | 59 passing `unittest` tests |
 | Storage | SQLite with FTS5, plus `LIKE` fallback |

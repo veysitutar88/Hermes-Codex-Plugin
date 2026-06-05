@@ -1,56 +1,109 @@
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-
-def _int_env(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if not raw:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
+from pydantic import AliasChoices, Field, ValidationInfo, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def _bool_env(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() not in {"0", "false", "no", "off"}
+SQLITE_FILENAME = "hermes-codex-plugin.sqlite3"
+
+_INT_DEFAULTS = {
+    "recall_limit": 5,
+    "recall_chars": 3000,
+    "max_capture_chars": 200000,
+}
 
 
-@dataclass(frozen=True)
-class Settings:
-    db_path: Path
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=os.getenv("HERMES_CODEX_ENV_FILE", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="HERMES_CODEX_",
+    )
+
+    db_path: Optional[Path] = Field(default=None, validation_alias="HERMES_CODEX_DB")
+    plugin_data: Optional[Path] = Field(
+        default=None,
+        validation_alias=AliasChoices("PLUGIN_DATA", "CLAUDE_PLUGIN_DATA"),
+        exclude=True,
+    )
+    plugin_root: Optional[Path] = Field(
+        default=None,
+        validation_alias="PLUGIN_ROOT",
+        exclude=True,
+    )
     recall_limit: int = 5
     recall_chars: int = 3000
     max_capture_chars: int = 200000
     capture_assistant: bool = True
     disabled: bool = False
 
+    @field_validator("db_path", "plugin_data", "plugin_root", mode="after")
+    @classmethod
+    def _expand_path(cls, value: Optional[Path]) -> Optional[Path]:
+        if value is None:
+            return None
+        return value.expanduser()
 
-def default_db_path() -> Path:
-    explicit = os.environ.get("HERMES_CODEX_DB")
+    @field_validator("recall_limit", "recall_chars", "max_capture_chars", mode="before")
+    @classmethod
+    def _int_or_default(cls, value: object, info: ValidationInfo) -> int:
+        default = _INT_DEFAULTS[info.field_name]
+        if value in (None, ""):
+            return default
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @model_validator(mode="after")
+    def _resolve_db_path(self) -> "Settings":
+        if self.db_path is None:
+            self.db_path = default_db_path(
+                plugin_data=self.plugin_data,
+                plugin_root=self.plugin_root,
+            )
+        return self
+
+
+def default_db_path(
+    explicit_db_path: Optional[Path] = None,
+    plugin_data: Optional[Path] = None,
+    plugin_root: Optional[Path] = None,
+    cwd: Optional[Path] = None,
+) -> Path:
+    explicit = explicit_db_path or _path_from_env("HERMES_CODEX_DB")
     if explicit:
         return Path(explicit).expanduser()
 
-    plugin_data = os.environ.get("PLUGIN_DATA") or os.environ.get("CLAUDE_PLUGIN_DATA")
+    plugin_data = (
+        plugin_data
+        or _path_from_env("PLUGIN_DATA")
+        or _path_from_env("CLAUDE_PLUGIN_DATA")
+    )
     if plugin_data:
-        return Path(plugin_data).expanduser() / "hermes-codex-plugin.sqlite3"
+        return Path(plugin_data).expanduser() / SQLITE_FILENAME
 
-    inferred_plugin_data = infer_codex_plugin_data_path(Path.cwd())
+    inferred_plugin_data = infer_codex_plugin_data_path(cwd or Path.cwd())
     if inferred_plugin_data is not None:
         return inferred_plugin_data
 
-    plugin_root = os.environ.get("PLUGIN_ROOT")
+    plugin_root = plugin_root or _path_from_env("PLUGIN_ROOT")
     if plugin_root:
         inferred_plugin_data = infer_codex_plugin_data_path(Path(plugin_root))
         if inferred_plugin_data is not None:
             return inferred_plugin_data
 
     return Path.home() / ".hermes-codex-plugin" / "memory.sqlite3"
+
+
+def _path_from_env(name: str) -> Optional[Path]:
+    raw = os.environ.get(name)
+    if not raw:
+        return None
+    return Path(raw).expanduser()
 
 
 def infer_codex_plugin_data_path(cwd: Path) -> Optional[Path]:
@@ -74,17 +127,10 @@ def infer_codex_plugin_data_path(cwd: Path) -> Optional[Path]:
             / "plugins"
             / "data"
             / "{}-{}".format(marketplace, plugin)
-            / "hermes-codex-plugin.sqlite3"
+            / SQLITE_FILENAME
         )
     return None
 
 
 def load_settings() -> Settings:
-    return Settings(
-        db_path=default_db_path(),
-        recall_limit=_int_env("HERMES_CODEX_RECALL_LIMIT", 5),
-        recall_chars=_int_env("HERMES_CODEX_RECALL_CHARS", 3000),
-        max_capture_chars=_int_env("HERMES_CODEX_MAX_CAPTURE_CHARS", 200000),
-        capture_assistant=_bool_env("HERMES_CODEX_CAPTURE_ASSISTANT", True),
-        disabled=_bool_env("HERMES_CODEX_DISABLED", False),
-    )
+    return Settings()

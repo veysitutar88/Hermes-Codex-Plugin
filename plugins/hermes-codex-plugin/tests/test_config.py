@@ -12,21 +12,29 @@ from hermes_codex_plugin.infrastructure.config import (
 
 class ConfigTest(unittest.TestCase):
     def test_infers_plugin_data_path_from_cache_cwd(self) -> None:
-        cwd = Path(
-            "/Users/example/.codex/plugins/cache/"
-            "hermes-codex-plugin/hermes-codex-plugin/0.1.3"
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir).resolve() / "home" / "example"
+            cwd = (
+                root
+                / ".codex"
+                / "plugins"
+                / "cache"
+                / "hermes-codex-plugin"
+                / "hermes-codex-plugin"
+                / "0.1.3"
+            )
 
-        path = infer_codex_plugin_data_path(cwd)
+            path = infer_codex_plugin_data_path(cwd)
 
-        self.assertEqual(
-            path,
-            Path(
-                "/Users/example/.codex/plugins/data/"
-                "hermes-codex-plugin-hermes-codex-plugin/"
-                "hermes-codex-plugin.sqlite3"
-            ),
-        )
+            self.assertEqual(
+                path,
+                root
+                / ".codex"
+                / "plugins"
+                / "data"
+                / "hermes-codex-plugin-hermes-codex-plugin"
+                / "hermes-codex-plugin.sqlite3",
+            )
 
     def test_default_db_path_uses_plugin_root_when_plugin_data_is_missing(self) -> None:
         old_cwd = Path.cwd()
@@ -42,21 +50,28 @@ class ConfigTest(unittest.TestCase):
         try:
             for name in old_env:
                 os.environ.pop(name, None)
-            os.environ["PLUGIN_ROOT"] = (
-                "/Users/example/.codex/plugins/cache/"
-                "hermes-codex-plugin/hermes-codex-plugin/0.1.4"
-            )
 
             with tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir).resolve() / "home" / "example"
+                os.environ["PLUGIN_ROOT"] = str(
+                    root
+                    / ".codex"
+                    / "plugins"
+                    / "cache"
+                    / "hermes-codex-plugin"
+                    / "hermes-codex-plugin"
+                    / "0.1.4"
+                )
                 os.chdir(temp_dir)
                 try:
                     self.assertEqual(
                         default_db_path(),
-                        Path(
-                            "/Users/example/.codex/plugins/data/"
-                            "hermes-codex-plugin-hermes-codex-plugin/"
-                            "hermes-codex-plugin.sqlite3"
-                        ),
+                        root
+                        / ".codex"
+                        / "plugins"
+                        / "data"
+                        / "hermes-codex-plugin-hermes-codex-plugin"
+                        / "hermes-codex-plugin.sqlite3",
                     )
                 finally:
                     os.chdir(old_cwd)

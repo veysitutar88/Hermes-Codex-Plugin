@@ -1,8 +1,9 @@
 {
   "mcpServers": {
     "hermes-codex-plugin": {
-      "command": "python3",
+      "command": "py",
       "args": [
+        "-3",
         "scripts/mcp_server.py"
       ],
       "cwd": ".",
